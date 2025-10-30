@@ -17,7 +17,7 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
-from assignment.views import initialize_data, UserViewSet
+from assignment.views import initialize_data, UserViewSet, RecordView, SummaryView
 from rest_framework.routers import DefaultRouter
 
 
@@ -28,4 +28,6 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/", include(router.urls)),
     path("init_data/", initialize_data, name="initialize_data"),
+    path("recordsjson", RecordView.as_view(), name="records_json"),
+    path("users/<int:id>/summary", SummaryView.as_view(), name="summary"),
 ]

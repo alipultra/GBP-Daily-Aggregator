@@ -1,4 +1,13 @@
-# Assignment Template
+# Daily Aggregator
+
+"Daily Aggregator" — An API that aggregates learning logs and returns moving averages
+
+## Overview
+A Django REST API system for tracking and analyzing study records with word count and study time metrics. The system provides data aggregation and summary capabilities with various granularities.
+
+## Algorithm Explanation
+## Core Aggregation Algorithm
+The system uses Django's database aggregation functions to summarize study data:
 
 ## Initial Setup
 
