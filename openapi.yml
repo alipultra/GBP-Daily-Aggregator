@@ -1,0 +1,285 @@
+openapi: 3.0.3
+info:
+  title: Daily Aggregator API
+  description: API for managing study records and generating summaries
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+    description: Development server
+
+paths:
+  /recordsjson:
+    post:
+      summary: Create a new study record
+      description: |
+        Creates a new study record for a user. The endpoint is idempotent - 
+        duplicate submissions (same user_id, timestamp, word_count, and study_time_minutes) 
+        will return the existing record.
+      tags:
+        - Records
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - user_id
+                - word_count
+                - study_time_minutes
+              properties:
+                user_id:
+                  type: integer
+                  description: ID of the user
+                  example: 1
+                word_count:
+                  type: integer
+                  minimum: 0
+                  description: Number of words studied
+                  example: 150
+                study_time_minutes:
+                  type: integer
+                  minimum: 0
+                  description: Study time in minutes
+                  example: 30
+                timestamp:
+                  type: string
+                  format: date-time
+                  description: |
+                    Timestamp of the study session. 
+                    If not provided, current time will be used.
+                  example: "2024-01-15T14:30:00Z"
+      responses:
+        '201':
+          description: Record created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                    description: ID of the created record
+                  user_id:
+                    type: integer
+                    description: ID of the user
+                  word_count:
+                    type: integer
+                    description: Number of words studied
+                  study_time_minutes:
+                    type: integer
+                    description: Study time in minutes
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: Timestamp of the study session
+        '400':
+          description: Bad request - validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: array
+                    items:
+                      type: string
+                    description: Error messages for user_id field
+                  word_count:
+                    type: array
+                    items:
+                      type: string
+                    description: Error messages for word_count field
+                  study_time_minutes:
+                    type: array
+                    items:
+                      type: string
+                    description: Error messages for study_time_minutes field
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: array
+                    items:
+                      type: string
+                    example: ["User not found"]
+
+  /users/{id}/summary:
+    get:
+      summary: Get user study summary
+      description: |
+        Retrieves a summarized view of a user's study records within a specified time period.
+        Data can be aggregated by hour, day, or month granularity.
+      tags:
+        - Summary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: User ID
+          schema:
+            type: integer
+            example: 1
+        - name: from
+          in: query
+          required: true
+          description: Start date/time of the period (ISO 8601 format)
+          schema:
+            type: string
+            format: date-time
+            example: "2024-01-01T00:00:00Z"
+        - name: to
+          in: query
+          required: true
+          description: End date/time of the period (ISO 8601 format)
+          schema:
+            type: string
+            format: date-time
+            example: "2024-01-31T23:59:59Z"
+        - name: granularity
+          in: query
+          required: false
+          description: Time granularity for aggregation
+          schema:
+            type: string
+            enum: [hour, day, month]
+            default: day
+            example: day
+      responses:
+        '200':
+          description: Summary retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: integer
+                    description: ID of the user
+                  user_email:
+                    type: string
+                    format: email
+                    description: Email address of the user
+                  timezone:
+                    type: string
+                    description: Timezone used for the analysis
+                  granularity:
+                    type: string
+                    description: Granularity used for aggregation
+                  period:
+                    type: object
+                    properties:
+                      from:
+                        type: string
+                        format: date-time
+                        description: Start of the analysis period
+                      to:
+                        type: string
+                        format: date-time
+                        description: End of the analysis period
+                  summary:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        start_date:
+                          type: string
+                          format: date-time
+                          description: Start of the period
+                        end_date:
+                          type: string
+                          format: date-time
+                          description: End of the period
+                        total_word_count:
+                          type: integer
+                          description: Total words studied in the period
+                        total_study_time_minutes:
+                          type: integer
+                          description: Total study time in minutes in the period
+                        average_words_per_minute:
+                          type: number
+                          format: float
+                          description: Average words per minute (WPM) for the period
+                        moving_avg_word_count:
+                          type: number
+                          format: float
+                          nullable: true
+                          description: 3-period moving average of word count
+                        moving_avg_study_time:
+                          type: number
+                          format: float
+                          nullable: true
+                          description: 3-period moving average of study time
+                        record_count:
+                          type: integer
+                          description: Number of records in the period
+        '400':
+          description: Bad request - invalid parameters
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error message
+                    examples:
+                      missing_params:
+                        value: '"from" and "to" parameters are required'
+                      invalid_granularity:
+                        value: 'Granularity must be hour, day, or month'
+                      invalid_date_order:
+                        value: '"from" date must be before "to" date'
+                      invalid_date_format:
+                        value: 'Invalid date format: Unable to parse date: invalid-date'
+        '404':
+          description: User not found
+        '500':
+          description: Internal server error
+
+components:
+  schemas:
+    Record:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        word_count:
+          type: integer
+        study_time_minutes:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+    SummaryPeriod:
+      type: object
+      properties:
+        start_date:
+          type: string
+          format: date-time
+        end_date:
+          type: string
+          format: date-time
+        total_word_count:
+          type: integer
+        total_study_time_minutes:
+          type: integer
+        average_words_per_minute:
+          type: number
+          format: float
+        moving_avg_word_count:
+          type: number
+          format: float
+          nullable: true
+        moving_avg_study_time:
+          type: number
+          format: float
+          nullable: true
+        record_count:
+          type: integer
